@@ -6,7 +6,7 @@ python:
   - "3.8"
   - "3.9"
 install:
-  - pip install pylint requests PyYAML pytest
+  - pip install pylint httpx respx PyYAML pytest
   - pip install -e .
 script:
   - pytest

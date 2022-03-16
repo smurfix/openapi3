@@ -1,6 +1,6 @@
 import json
 import re
-import requests
+import httpx
 
 try:
     from urllib.parse import urlencode
@@ -148,6 +148,10 @@ class Operation(ObjectBase):
         "servers",
         "_session",
         "_request",
+        "_aux",
+        "_headers",
+        "_cookies",
+        "_params",
     ]
     required_fields = ["responses"]
 
@@ -173,6 +177,10 @@ class Operation(ObjectBase):
         # default parameters to an empty list for processing later
         if self.parameters is None:
             self.parameters = []
+        self._aux = {}
+        self._headers = {}
+        self._cookies = {}
+        self._params = {}
 
         # gather all operations into the spec object
         if self.operationId is not None:
@@ -183,12 +191,6 @@ class Operation(ObjectBase):
         # TODO - maybe make this generic
         if self.security is None:
             self.security = self._root._get("security", ["SecurityRequirement"], is_list=True) or []
-
-        # Store session object
-        self._session = requests.Session()
-
-        # Store request object
-        self._request = requests.Request()
 
     def _resolve_references(self):
         """
@@ -204,32 +206,32 @@ class Operation(ObjectBase):
         ss = self._root.components.securitySchemes[security_requirement.name]
 
         if ss.type == "http" and ss.scheme == "basic":
-            self._request.auth = requests.auth.HTTPBasicAuth(*value)
+            self._aux["auth"] = httpx.BasicAuth(*value)
 
-        if ss.type == "http" and ss.scheme == "digest":
-            self._request.auth = requests.auth.HTTPDigestAuth(*value)
+        elif ss.type == "http" and ss.scheme == "digest":
+            self._aux["auth"] = httpx.DigestAuth(*value)
 
-        if ss.type == "http" and ss.scheme == "bearer":
+        elif ss.type == "http" and ss.scheme == "bearer":
             header = ss.bearerFormat or "Bearer {}"
-            self._request.headers["Authorization"] = header.format(value)
+            self._headers["Authorization"] = header.format(value)
 
-        if ss.type == "mutualTLS":
+        elif ss.type == "mutualTLS":
             # TLS Client certificates (mutualTLS)
-            self._request.cert = value
+            self._aux["cert"] = value
 
-        if ss.type == "apiKey":
+        elif ss.type == "apiKey":
             if ss.in_ == "query":
                 # apiKey in query parameter
-                self._request.params[ss.name] = value
+                self._params[ss.name] = value
 
-            if ss.in_ == "header":
+            elif ss.in_ == "header":
                 # apiKey in query header data
-                self._request.headers[ss.name] = value
+                self._headers[ss.name] = value
 
-            if ss.in_ == "cookie":
-                self._request.cookies = {ss.name: value}
+            elif ss.in_ == "cookie":
+                self._cookies[ss.name] = value
 
-    def _request_handle_parameters(self, parameters={}):
+    def _request_handle_parameters(self, base_url=None, parameters={}, data=""):
         # Parameters
         path_parameters = {}
         accepted_parameters = {}
@@ -256,34 +258,37 @@ class Operation(ObjectBase):
                 path_parameters[name] = value
 
             if spec.in_ == "query":
-                self._request.params[name] = value
+                self._params[name] = value
 
             if spec.in_ == "header":
-                self._request.headers[name] = value
+                self._headers[name] = value
 
             if spec.in_ == "cookie":
-                self._request.cookies[name] = value
+                self._cookies[name] = value
 
-        self._request.url = self._request.url.format(**path_parameters)
+        for k,v in self._cookies.items():
+            self._session.cookies[k] = v
+
+        return (self.path[-1], base_url + self.path[-2].format(**path_parameters)), dict(content=data, headers=self._headers, params=self._params, **self._aux)
 
     def _request_handle_body(self, data):
         if "application/json" in self.requestBody.content:
+            body = ""
             if isinstance(data, dict) or isinstance(data, list):
                 body = json.dumps(data)
 
-            if issubclass(type(data), Model):
+            elif isinstance(data, Model):
                 # serialize models as dicts
                 converter = lambda c: dict(c)
                 data_dict = {k: v for k, v in data if v is not None}
 
                 body = json.dumps(data_dict, default=converter)
 
-            self._request.data = body
-            self._request.headers["Content-Type"] = "application/json"
+            return "application/json",body
         else:
             raise NotImplementedError()
 
-    def request(self, base_url, security={}, data=None, parameters={}, verify=True, session=None, raw_response=False):
+    def request(self, *a,**k):
         """
         Sends an HTTP request as described by this Path
 
@@ -297,21 +302,31 @@ class Operation(ObjectBase):
         :type data: any, should match content/type
         :param parameters: The parameters used to create the path
         :type parameters: dict{str: str}
-        :param verify: Should we do an ssl verification on the request or not,
-                       In case str was provided, will use that as the CA.
-        :type verify: bool/str
-        :param session: a persistent request session
-        :type session: None, requests.Session
+        :param session: a persistent httpx session
+        :type session: httpx.Client
         :param raw_response: If true, return the raw response instead of validating
                              and exterpolating it.
         :type raw_response: bool
         """
+        a,k = self._request_prepare(*a, **k)
+        result = self._session.request(*a,**k)
+        return self._process_result(result)
+
+    async def arequest(self, *a,**k):
+        """
+        Like ``request``, but async.
+        """
+        a,k = self._request_prepare(*a,**k)
+        result = await self._session.request(*a,**k)
+        return self._process_result(result)
+
+    def _request_prepare(self, base_url, security={}, data=None, parameters={}, session=None, raw_response=False):
+
+        if session is None:
+            session = httpx.Client()
+        self._session = session
+
         # Set request method (e.g. 'GET')
-        self._request = requests.Request(self.path[-1])
-
-        # Set self._request.url to base_url w/ path
-        self._request.url = base_url + self.path[-2]
-
         if security and self.security:
             security_requirement = None
             for scheme, value in security.items():
@@ -333,15 +348,13 @@ class Operation(ObjectBase):
                 err_msg = "Request Body is required but none was provided."
                 raise ValueError(err_msg)
 
-            self._request_handle_body(data)
+            typ,data = self._request_handle_body(data)
+            if typ and "content-type" not in parameters:
+                parameters["content-type"] = typ
 
-        self._request_handle_parameters(parameters)
+        return self._request_handle_parameters(base_url=base_url, parameters=parameters, data=data)
 
-        if session is None:
-            session = self._session
-
-        # send the prepared request
-        result = session.send(self._request.prepare())
+    def _process_result(self, result):
 
         # spec enforces these are strings
         status_code = str(result.status_code)
