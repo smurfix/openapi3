@@ -1,3 +1,10 @@
+openapi3 (1.6.5-2) smurf; urgency=medium
+
+  * Fix testing
+  * Fix dependencies
+
+ -- Matthias Urlichs <matthias@urlichs.de>  Thu, 17 Mar 2022 10:54:25 +0100
+
 openapi3 (1.6.5-1) smurf; urgency=medium
 
   * Upstream merge
