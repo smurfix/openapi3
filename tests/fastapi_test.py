@@ -103,10 +103,11 @@ async def test_getPetUnexpectedResponse(event_loop, server, client):
     Tests that undeclared response codes raise the correct UnexpectedResponseError
     with the relevant inforamtion included.
     """
-    with pytest.raises(
-            openapi3.UnexpectedResponseError,
-            match=r"Unexpected response 204 from getPet \(expected one of 200, 404, 422, no default is defined\)",
-        ) as exc_info:
-        r = await asyncio.to_thread(client.call_getPet, parameters={"pet_id": -2})
+    async with client:
+        with pytest.raises(
+                openapi3.UnexpectedResponseError,
+                match=r"Unexpected response 204 from getPet \(expected one of 200, 404, 422, no default is defined\)",
+            ) as exc_info:
+            r = await client.call_getPet(parameters={"pet_id": -2})
 
     assert exc_info.value.status_code == 204
