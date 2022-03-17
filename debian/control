@@ -2,7 +2,7 @@ Source: openapi3
 Maintainer: Matthias Urlichs <matthias@urlichs.de>
 Section: python
 Priority: optional
-Build-Depends: dh-python, python3-setuptools, python3-all, debhelper (>= 9),
+Build-Depends: dh-python, python3-setuptools, python3-all, debhelper (>= 13),
   python3-pytest-asyncio,
   python3-uvloop,
   python3-hypercorn,
@@ -14,7 +14,8 @@ Homepage: https://github.com/dorthu/openapi3
 
 Package: python3-openapi3
 Architecture: all
-Depends: ${misc:Depends}, ${python3:Depends}
+Depends: ${misc:Depends}, ${python3:Depends},
+  python3-httpx,
 Description: Client and Validator of OpenAPI 3 Specifications
  openapi3 is a Python OpenAPI 3 client and validator for Python 3.
 
