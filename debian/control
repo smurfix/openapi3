@@ -8,6 +8,7 @@ Build-Depends: dh-python, python3-setuptools, python3-all, debhelper (>= 9),
   python3-hypercorn,
   python3-pydantic,
   python3-fastapi,
+  python3-respx,
 Standards-Version: 3.9.6
 Homepage: https://github.com/dorthu/openapi3
 
@@ -15,24 +16,5 @@ Package: python3-openapi3
 Architecture: all
 Depends: ${misc:Depends}, ${python3:Depends}
 Description: Client and Validator of OpenAPI 3 Specifications
- openapi3
- ========
- .
- A Python `OpenAPI 3 Specification`_ client and validator for Python 3.
- .
- .. image:: https://travis-ci.org/Dorthu/openapi3.svg?branch=master
-     :target: https://travis-ci.org/Dorthu/openapi3
- .
- .
- .. image:: https://badge.fury.io/py/openapi3.svg
-    :target: https://badge.fury.io/py/openapi3
- .
- .
- Validation Mode
- ---------------
- .
- This module can be run against a spec file to validate it like so::
- .
-    python3 -m openapi3 /path/to/spec
- .
+ openapi3 is a Python OpenAPI 3 client and validator for Python 3.
 
