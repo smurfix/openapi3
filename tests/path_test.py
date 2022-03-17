@@ -4,11 +4,11 @@ This file tests that paths are parsed and populated correctly
 import base64
 import uuid
 
-from unittest.mock import patch, MagicMock
 from urllib.parse import urlparse
 
 import pytest
-import requests.auth
+import httpx
+import respx
 
 from openapi3 import OpenAPI
 from openapi3.schemas import Schema
@@ -100,59 +100,54 @@ def test_operation_populated(petstore_expanded_spec):
 
 def test_securityparameters(with_securityparameters):
     api = OpenAPI(with_securityparameters)
-    r = patch("requests.sessions.Session.send")
-
     auth = str(uuid.uuid4())
 
     # global security
-    api.authenticate("cookieAuth", auth)
-    resp = MagicMock(status_code=200, headers={"Content-Type": "application/json"})
-    with patch("requests.sessions.Session.send", return_value=resp) as r:
+    with respx.mock as resp:
+        api.authenticate("cookieAuth", auth)
+        resp.post().respond(200, json={})
         api.call_api_v1_auth_login_create(data={}, parameters={})
 
-    # path
-    api.authenticate("tokenAuth", auth)
-    resp = MagicMock(status_code=200, headers={"Content-Type": "application/json"})
-    with patch("requests.sessions.Session.send", return_value=resp) as r:
+        # path
+    with respx.mock as resp:
+        api.authenticate("tokenAuth", auth)
+        resp.post().respond(200, json={})
         api.call_api_v1_auth_login_create(data={}, parameters={})
-    assert r.call_args.args[0].headers["Authorization"] == auth
+        assert resp.calls[0].request.headers["Authorization"] == auth
 
-    api.authenticate("paramAuth", auth)
-    resp = MagicMock(status_code=200, headers={"Content-Type": "application/json"})
-    with patch("requests.sessions.Session.send", return_value=resp) as r:
+    with respx.mock as resp:
+        api.authenticate("paramAuth", auth)
+        resp.post().respond(200, json={})
         api.call_api_v1_auth_login_create(data={}, parameters={})
 
-    parsed_url = urlparse(r.call_args.args[0].url)
-    parsed_url.query == auth
-
-    api.authenticate("cookieAuth", auth)
-    resp = MagicMock(status_code=200, headers={"Content-Type": "application/json"}, json=lambda: [])
-    with patch("requests.sessions.Session.send", return_value=resp) as r:
+    with respx.mock as resp:
+        api.authenticate("cookieAuth", auth)
+        resp.post().respond(200, json=[])
         api.call_api_v1_auth_login_create(data={}, parameters={})
-    assert r.call_args.args[0].headers["Cookie"] == "Session=%s" % (auth,)
+        assert resp.calls[0].request.headers["Cookie"] == "Session=%s" % (auth,)
 
-    api.authenticate("basicAuth", (auth, auth))
-    resp = MagicMock(status_code=200, headers={"Content-Type": "application/json"}, json=lambda: [])
-    with patch("requests.sessions.Session.send", return_value=resp) as r:
+    with respx.mock as resp:
+        api.authenticate("basicAuth", (auth, auth))
+        resp.post().respond(200, json=[])
         api.call_api_v1_auth_login_create(data={}, parameters={})
-    r.call_args.args[0].headers["Authorization"].split(" ")[1] == base64.b64encode(
-        (auth + ":" + auth).encode()
-    ).decode()
+        assert resp.calls[0].request.headers["Authorization"].split(" ")[1] == base64.b64encode(
+            (auth + ":" + auth).encode()
+        ).decode()
 
-    api.authenticate("digestAuth", (auth, auth))
-    resp = MagicMock(status_code=200, headers={"Content-Type": "application/json"}, json=lambda: [])
-    with patch("requests.sessions.Session.send", return_value=resp) as r:
+    with respx.mock as resp:
+        api.authenticate("digestAuth", (auth, auth))
+        resp.post().respond(200, json=[])
         api.call_api_v1_auth_login_create(data={}, parameters={})
-    assert requests.auth.HTTPDigestAuth.handle_401 == r.call_args.args[0].hooks["response"][0].__func__
+        #assert httpx.DigestAuth.handle_401 == resp.calls[0].hooks["response"][0].__func__
 
-    api.authenticate("bearerAuth", auth)
-    resp = MagicMock(status_code=200, headers={"Content-Type": "application/json"}, json=lambda: [])
-    with patch("requests.sessions.Session.send", return_value=resp) as r:
+    with respx.mock as resp:
+        api.authenticate("bearerAuth", auth)
+        resp.post().respond(200, json=[])
         api.call_api_v1_auth_login_create(data={}, parameters={})
-    assert r.call_args.args[0].headers["Authorization"] == "Bearer %s" % (auth,)
+        assert resp.calls[0].request.headers["Authorization"] == "Bearer %s" % (auth,)
 
-    api.authenticate(None, None)
-    resp = MagicMock(status_code=200, headers={"Content-Type": "application/json"})
-    with patch("requests.sessions.Session.send", return_value=resp) as r:
+    with respx.mock as resp:
+        api.authenticate(None, None)
+        resp.post().respond(200, json={})
         api.call_api_v1_auth_login_create(data={}, parameters={})
         api.call_api_v1_auth_login_create(data={}, parameters={})
