@@ -1,4 +1,4 @@
-import requests
+import httpx
 
 from .object_base import ObjectBase, Map
 from .errors import ReferenceResolutionError, SpecError
@@ -25,18 +25,27 @@ class OpenAPI(ObjectBase):
         "_security",
         "validation_mode",
         "_spec_errors",
+        "_ssl_cert",
+        "_ssl_trust_env",
         "_ssl_verify",
         "_session",
+        "_async",
+        "_ctx",
     ]
     required_fields = ["openapi", "info", "paths"]
 
     def __init__(
-        self, raw_document, validate=False, ssl_verify=None, use_session=False, session_factory=requests.Session
+        self, raw_document, validate=False, ssl_verify=None,
+        ssl_cert = None, ssl_trust_env=None,
     ):
         """
-        Creates a new OpenAPI document from a loaded spec file.  This is
-        overridden here because we need to specify the path in the parent
-        class' constructor.
+        Creates a new OpenAPI document from a loaded spec file.
+
+        This object should be used as a context manager, in order to save
+        resources by re-using the underlying HTTP connection.
+
+        You may also use an async context manager (``async with …``). This
+        modifies the ``call_*`` API methods to be asynchronous.
 
         :param raw_document: The raw OpenAPI file loaded into python
         :type raw_document: dct
@@ -61,11 +70,43 @@ class OpenAPI(ObjectBase):
 
         self._security = {}
 
+        self._ssl_cert = ssl_cert
+        self._ssl_trust_env = ssl_trust_env
         self._ssl_verify = ssl_verify
 
+    def _client_args(self):
+        res = {"follow_redirects": True,
+               "verify": self._ssl_verify,
+               "cert": self._ssl_cert,
+               "trust_env": self._ssl_trust_env,
+              }
+        return res
+
+    # Context manager, wrapper around httpx.Client (synchronous)
+    def __enter__(self):
+        if self._session is not None:
+            raise RuntimeError("duplicate session")
+        self._ctx = httpx.Client(**self._client_args())
+        self._session = self._ctx.__enter__()
+        self._async = False
+        return self
+
+    def __exit__(self, *tb):
         self._session = None
-        if use_session:
-            self._session = session_factory()
+        self._ctx.__exit__(*tb)
+
+    # Context manager, wrapper around httpx.AsyncClient
+    async def __aenter__(self):
+        if self._session is not None:
+            raise RuntimeError("duplicate session")
+        self._ctx = httpx.AsyncClient(**self._client_args())
+        self._session = await self._ctx.__aenter__()
+        self._async = True
+        return self
+
+    async def __aexit__(self, *tb):
+        self._session = None
+        await self._ctx.__aexit__(*tb)
 
     # public methods
     def authenticte(self, security_scheme, value):
@@ -103,11 +144,12 @@ class OpenAPI(ObjectBase):
         for part in path:
             part = part.replace('~1','/').replace('~0','~')
             if isinstance(node, Map):
-                if part not in node:  # pylint: disable=unsupported-membership-test
+                try:
+                    node = node[part]
+                except KeyError:
                     err_msg = "Invalid path {} in Reference".format(path)
                     breakpoint()
                     raise ReferenceResolutionError(err_msg)
-                node = node.get(part)
             else:
                 try:
                     ipart = int(part)
@@ -117,10 +159,11 @@ class OpenAPI(ObjectBase):
                     if ipart>=0 and ipart<len(node):
                         node = node[ipart]
                         continue
-                if not hasattr(node, part):
+                try:
+                    node = getattr(node, part)
+                except AttributeError:
                     err_msg = "Invalid path {} in Reference".format(path)
                     raise ReferenceResolutionError(err_msg)
-                node = getattr(node, part)
 
         return node
 
@@ -221,7 +264,12 @@ class OpenAPI(ObjectBase):
         if attr.startswith("call_"):
             _, operationId = attr.split("_", 1)
             if operationId in self._operation_map:
-                return self._get_callable(self._operation_map[operationId].request)
+                cb = self._operation_map[operationId]
+                if self._async:
+                    cb = cb.arequest
+                else:
+                    cb = cb.request
+                return self._get_callable(cb)
             else:
                 raise AttributeError("{} has no operation {}".format(self.info.title, operationId))
 
