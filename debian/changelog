@@ -1,3 +1,9 @@
+openapi3 (1.6.5-4) smurf; urgency=medium
+
+  * Merge httpx
+
+ -- Matthias Urlichs <matthias@urlichs.de>  Fri, 25 Mar 2022 09:58:27 +0100
+
 openapi3 (1.6.5-3) smurf; urgency=medium
 
   * dep

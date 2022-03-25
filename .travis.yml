@@ -1,12 +1,10 @@
 language: python
 python:
-  - "3.5"
-  - "3.6"
   - "3.7"
   - "3.8"
   - "3.9"
 install:
-  - pip install pylint httpx respx PyYAML pytest
+  - pip install pylint httpx respx PyYAML pytest uvloop hypercorn starlette fastapi pytest-asyncio
   - pip install -e .
 script:
   - pytest
