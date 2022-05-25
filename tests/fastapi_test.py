@@ -15,7 +15,7 @@ import openapi3
 from api.main import app
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture #(scope="session")
 def config(unused_tcp_port_factory):
     c = Config()
     c.bind = [f"localhost:{unused_tcp_port_factory()}"]
@@ -29,7 +29,7 @@ def event_loop(request):
     loop.close()
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture #(scope="session")
 async def server(event_loop, config):
     uvloop.install()
     try:
@@ -41,7 +41,7 @@ async def server(event_loop, config):
         await task
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture #(scope="session")
 async def client(event_loop, server):
     async with httpx.AsyncClient() as client:
         data = await client.get(f"http://{server.bind[0]}/openapi.json")
