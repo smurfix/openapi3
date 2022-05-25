@@ -8,7 +8,7 @@ variables:
 ## this is also in voice/sourcemgr but gitlab blocks that
 before_script:
   - "rm -rf ../.mgr"
-  - "git clone https://git.smurf.noris.de/sourcemgr.git ../.mgr"
+  - "git clone http://git.smurf.noris.de/sourcemgr.git ../.mgr"
   - "(cd ../.mgr; git show --oneline)"
   - "/bin/bash -x ../.mgr/gitlab-ci"
 buster:
