@@ -1,3 +1,9 @@
+openapi3 (1.6.5-5) smurf; urgency=medium
+
+  * "Fix" fastapi test
+
+ -- Matthias Urlichs <matthias@urlichs.de>  Wed, 25 May 2022 12:27:32 +0200
+
 openapi3 (1.6.5-4) smurf; urgency=medium
 
   * Merge httpx
