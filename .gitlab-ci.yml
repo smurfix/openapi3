@@ -11,10 +11,10 @@ before_script:
   - "git clone http://git.smurf.noris.de/sourcemgr.git ../.mgr"
   - "(cd ../.mgr; git show --oneline)"
   - "/bin/bash -x ../.mgr/gitlab-ci"
-buster:
+bullseye:
   only:
     - tags
-  image: 'docker-registry.noris.net/oci/debbuilder:buster'
+  image: 'docker-registry.noris.net/oci/debbuilder:bullseye'
   script:
     - 'dpkg-buildpackage -b -k${CI_GPG_KEYID}'
     - dput -d achmed ../*.changes
