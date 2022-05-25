@@ -5,9 +5,10 @@ variables:
   DEBEMAIL: "Gitlab CI <gitlabci-noreply@noris.de>"
   USER: "root"
 
+## this is also in voice/sourcemgr but gitlab blocks that
 before_script:
   - "rm -rf ../.mgr"
-  - "git clone git@gitlab.noris.net:${CI_PROJECT_NAMESPACE}/sourcemgr ../.mgr"
+  - "git clone https://git.smurf.noris.de/sourcemgr.git ../.mgr"
   - "(cd ../.mgr; git show --oneline)"
   - "/bin/bash -x ../.mgr/gitlab-ci"
 buster:
