@@ -7,7 +7,7 @@ variables:
 
 before_script:
   - "rm -rf ../.mgr"
-  - "git clone https://gitlab.noris.net/${CI_PROJECT_NAMESPACE}/sourcemgr ../.mgr"
+  - "git clone git@gitlab.noris.net/${CI_PROJECT_NAMESPACE}/sourcemgr ../.mgr"
   - "(cd ../.mgr; git show --oneline)"
   - "/bin/bash -x ../.mgr/gitlab-ci"
 buster:
