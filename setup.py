@@ -23,6 +23,14 @@ setup(
     license="BSD 3-Clause License",
     install_requires=["PyYaml", "httpx"],
     extras_require={
-        "test": ["pytest", "pytest-asyncio==0.16", "uvloop", "hypercorn", "pydantic", "fastapi", "respx"],
+        "test": [
+            "pytest==8.3.3",
+            "pylint==3.3.1",
+            "anyio==4.6.2",
+            "hypercorn==0.17.3",
+            "pydantic==2.9.2",
+            "fastapi==0.110.0",
+            "respx==0.21.1",
+        ],
     },
 )

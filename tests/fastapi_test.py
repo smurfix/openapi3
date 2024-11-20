@@ -1,13 +1,11 @@
-import asyncio
 import random
 import uuid
 
 import pytest
+import anyio
 
 import httpx
 
-import uvloop
-from hypercorn.asyncio import serve
 from hypercorn.config import Config
 
 import openapi3
@@ -22,27 +20,20 @@ def config(unused_tcp_port_factory):
     return c
 
 
-@pytest.fixture(scope="session")
-def event_loop(request):
-    loop = asyncio.get_event_loop_policy().new_event_loop()
-    yield loop
-    loop.close()
-
-
 @pytest.fixture #(scope="session")
-async def server(event_loop, config):
-    uvloop.install()
-    try:
-        sd = asyncio.Event()
-        task = event_loop.create_task(serve(app, config, shutdown_trigger=sd.wait))
+async def server(config, anyio_backend):
+    if anyio_backend=="trio":
+        from hypercorn.trio import serve
+    else:
+        from hypercorn.asyncio import serve
+    async with anyio.create_task_group() as tg:
+        tg.start_soon(serve, app, config)
         yield config
-    finally:
-        sd.set()
-        await task
+        tg.cancel_scope.cancel()
 
 
 @pytest.fixture #(scope="session")
-async def client(event_loop, server):
+async def client(server):
     async with httpx.AsyncClient() as client:
         data = await client.get(f"http://{server.bind[0]}/openapi.json")
     data = data.json()
@@ -55,8 +46,8 @@ def randomPet(name=None):
     return {"data":{"pet":{"name":str(name) if name else random.choice(["dog","cat","mouse","eagle"])}}}
 
 
-@pytest.mark.asyncio
-async def test_createPet(event_loop, server, client):
+@pytest.mark.anyio
+async def test_createPet(server, client):
     async with client:
         r = await client.call_createPet(**randomPet())
         assert type(r) == client.components.schemas["Pet"].get_type()
@@ -65,16 +56,16 @@ async def test_createPet(event_loop, server, client):
         assert type(r) == client.components.schemas["Error"].get_type()
 
 
-@pytest.mark.asyncio
-async def test_listPet(event_loop, server, client):
+@pytest.mark.anyio
+async def test_listPet(server, client):
     async with client:
         r = await client.call_createPet(**randomPet(uuid.uuid4()))
         l = await client.call_listPet()
     assert len(l) > 0
 
 
-@pytest.mark.asyncio
-async def test_getPet(event_loop, server, client):
+@pytest.mark.anyio
+async def test_getPet(server, client):
     async with client:
         pet = await client.call_createPet(**randomPet(uuid.uuid4()))
         r = await client.call_getPet(parameters={"pet_id":pet.id})
@@ -85,8 +76,8 @@ async def test_getPet(event_loop, server, client):
         assert type(r) == client.components.schemas["Error"].get_type()
 
 
-@pytest.mark.asyncio
-async def test_deletePet(event_loop, server, client):
+@pytest.mark.anyio
+async def test_deletePet(server, client):
     async with client:
         r = await client.call_deletePet(parameters={"pet_id":-1})
         assert type(r) == client.components.schemas["Error"].get_type()
@@ -97,8 +88,8 @@ async def test_deletePet(event_loop, server, client):
             await client.call_deletePet(parameters={"pet_id":pet.id})
 
 
-@pytest.mark.asyncio
-async def test_getPetUnexpectedResponse(event_loop, server, client):
+@pytest.mark.anyio
+async def test_getPetUnexpectedResponse(server, client):
     """
     Tests that undeclared response codes raise the correct UnexpectedResponseError
     with the relevant information included.

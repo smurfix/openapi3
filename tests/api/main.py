@@ -5,6 +5,7 @@ from typing import Optional
 
 import starlette.status
 from fastapi import FastAPI, Query, Body, Response
+from fastapi.params import Path
 from fastapi.responses import JSONResponse
 
 from .schema import Pets, Pet, PetCreate, Error
@@ -35,9 +36,9 @@ def createPet(response: Response,
         return JSONResponse(status_code=starlette.status.HTTP_409_CONFLICT,
                             content=Error(code=errno.EEXIST,
                                           message=f"{pet.name} already exists"
-                                          ).dict()
+                                          ).model_dump()
                             )
-    ZOO[pet.name] = r = Pet(id=next(idx), **pet.dict())
+    ZOO[pet.name] = r = Pet(id=next(idx), **pet.model_dump())
     response.status_code = starlette.status.HTTP_201_CREATED
     return r
 
@@ -56,10 +57,11 @@ def listPet(limit: Optional[int] = None) -> Pets:
              404: {"model": Error}
          }
          )
-def getPet(pet_id: int = Query(..., alias='petId')) -> Pets:
+def getPet(pet_id: int = Path(..., alias='pet_id')) -> Pets:
     if pet_id == -2:
         # special case - return an unexpected response code
         return JSONResponse(
+            content="",
             status_code=starlette.status.HTTP_204_NO_CONTENT,
         )
 
@@ -71,7 +73,7 @@ def getPet(pet_id: int = Query(..., alias='petId')) -> Pets:
         # media_type included here is to ensure that content encodings do not break
         # expected response type handling for requests
         return JSONResponse(status_code=starlette.status.HTTP_404_NOT_FOUND,
-                            content=Error(code=errno.ENOENT, message=f"{pet_id} not found").dict(),
+                            content=Error(code=errno.ENOENT, message=f"{pet_id} not found").model_dump(),
                             media_type="application/json; utf-8")
 
 
@@ -82,7 +84,7 @@ def getPet(pet_id: int = Query(..., alias='petId')) -> Pets:
                 404: {"model": Error}
             })
 def deletePet(response: Response,
-              pet_id: int = Query(..., alias='petId')) -> Pets:
+              pet_id: int = Path(..., alias='pet_id')) -> Pets:
     for k, v in ZOO.items():
         if pet_id == v.id:
             del ZOO[k]
@@ -90,4 +92,4 @@ def deletePet(response: Response,
             return response
     else:
         return JSONResponse(status_code=starlette.status.HTTP_404_NOT_FOUND,
-                            content=Error(code=errno.ENOENT, message=f"{pet_id} not found").dict())
+                            content=Error(code=errno.ENOENT, message=f"{pet_id} not found").model_dump())
