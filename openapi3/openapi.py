@@ -148,7 +148,6 @@ class OpenAPI(ObjectBase):
                     node = node[part]
                 except KeyError:
                     err_msg = "Invalid path {} in Reference".format(path)
-                    breakpoint()
                     raise ReferenceResolutionError(err_msg)
             else:
                 try:
