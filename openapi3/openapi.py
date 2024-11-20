@@ -1,5 +1,7 @@
 import httpx
 
+import requests
+
 from .object_base import ObjectBase, Map
 from .errors import ReferenceResolutionError, SpecError
 
@@ -107,6 +109,8 @@ class OpenAPI(ObjectBase):
     async def __aexit__(self, *tb):
         self._session = None
         await self._ctx.__aexit__(*tb)
+
+        self._session = None
 
     # public methods
     def authenticte(self, security_scheme, value):

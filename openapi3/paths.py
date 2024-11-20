@@ -191,6 +191,18 @@ class Operation(ObjectBase):
         # TODO - maybe make this generic
         if self.security is None:
             self.security = self._root._get("security", ["SecurityRequirement"], is_list=True) or []
+        if self.parameters is None:
+            self.parameters = []
+
+    def _resolve_references(self):
+        """
+        Overloaded _resolve_references to allow us to verify parameters after
+        we've got all references settled.
+        """
+        super(self.__class__, self)._resolve_references()
+
+        # this will raise if parameters are invalid
+        _validate_parameters(self)
 
     def _resolve_references(self):
         """
@@ -260,16 +272,17 @@ class Operation(ObjectBase):
             if spec.in_ == "query":
                 self._params[name] = value
 
-            if spec.in_ == "header":
+            elif spec.in_ == "header":
                 self._headers[name] = value
 
-            if spec.in_ == "cookie":
+            elif spec.in_ == "cookie":
                 self._cookies[name] = value
 
         for k,v in self._cookies.items():
             self._session.cookies[k] = v
 
         return (self.path[-1], base_url + self.path[-2].format(**path_parameters)), dict(content=data, headers=self._headers, params=self._params, **self._aux)
+
 
     def _request_handle_body(self, data):
         if "application/json" in self.requestBody.content:
@@ -285,6 +298,7 @@ class Operation(ObjectBase):
                 body = json.dumps(data_dict, default=converter)
 
             return "application/json",body
+
         else:
             raise NotImplementedError()
 
@@ -302,8 +316,13 @@ class Operation(ObjectBase):
         :type data: any, should match content/type
         :param parameters: The parameters used to create the path
         :type parameters: dict{str: str}
-        :param session: a persistent httpx session
-        :type session: httpx.Client
+        :param parameters: The parameters used to create the path
+        :type parameters: dict{str: str}
+        :param verify: Should we do an ssl verification on the request or not,
+                       In case str was provided, will use that as the CA.
+        :type verify: bool/str
+        :param session: a persistent request session
+        :type session: None, requests.Session
         :param raw_response: If true, return the raw response instead of validating
                              and exterpolating it.
         :type raw_response: bool
