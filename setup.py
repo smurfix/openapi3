@@ -14,7 +14,7 @@ with open(path.join(here, "README.rst"), encoding="utf-8") as f:
 
 setup(
     name="openapi3",
-    version="1.6.5",
+    version="1.8.2",
     description="Client and Validator of OpenAPI 3 Specifications",
     long_description=long_description,
     author="dorthu",
@@ -23,6 +23,6 @@ setup(
     license="BSD 3-Clause License",
     install_requires=["PyYaml", "httpx"],
     extras_require={
-        "test": ["pytest", "pytest-asyncio==0.16", "uvloop", "hypercorn", "pydantic", "fastapi", "respx"],
+        "test": ["pytest", "pytest-asyncio==0.16", "uvloop", "hypercorn", "pydantic", "fastapi"],
     },
 )

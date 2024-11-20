@@ -8,6 +8,7 @@ TYPE_LOOKUP = {
     "object": dict,
     "string": str,
     "boolean": bool,
+    "number": float,
 }
 
 
@@ -57,6 +58,7 @@ class Schema(ObjectBase):
         "contentEncoding",
         "contentMediaType",
         "contentSchema",
+        "extensions",
         "_model_type",
         "_request_model_type",
         "_resolved_allOfs",
@@ -74,7 +76,7 @@ class Schema(ObjectBase):
         self.minLength = self._get("minLength", int)
         self.pattern = self._get("pattern", str)
         self.maxItems = self._get("maxItems", int)
-        self.minItems = self._get("minItmes", int)
+        self.minItems = self._get("minItems", int)
         self.required = self._get("required", list)
         self.enum = self._get("enum", list)
         self.type = self._get("type", str)
@@ -92,7 +94,7 @@ class Schema(ObjectBase):
         self.readOnly = self._get("readOnly", bool)
         self.writeOnly = self._get("writeOnly", bool)
         self.xml = self._get("xml", dict)  # 'XML'
-        self.externalDocs = self._get("externalDocs", dict)  # 'ExternalDocs'
+        self.externalDocs = self._get("externalDocs", "ExternalDocumentation")  # 'ExternalDocs'
         self.deprecated = self._get("deprecated", bool)
         self.example = self._get("example", "*")
         self.contentEncoding = self._get("contentEncoding", str)
@@ -128,7 +130,7 @@ class Schema(ObjectBase):
         # this is defined in ObjectBase.__init__ as all slots are
         if self._model_type is None:  # pylint: disable=access-member-before-definition
             type_name = self.title or self.path[-1]
-            # if there are no defined properites for this model, use an empty dict
+            # if there are no defined properties for this model, use an empty dict
             # to allow the model to be set up correctly
             model_properties = self.properties or {}
 
@@ -199,6 +201,9 @@ class Schema(ObjectBase):
             for c in self.allOf:
                 if isinstance(c, Schema):
                     self._merge(c)
+
+        # Recursively merge allOfs for children
+        super()._resolve_allOfs()
 
     def _merge(self, other):
         """
@@ -274,6 +279,8 @@ class Model:
         :param data: The data to create this Model with
         :type data: dict
         """
+        data = data or {}
+
         self._raw_data = data
         self._schema = schema
 

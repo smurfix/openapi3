@@ -194,3 +194,59 @@ def with_array_example():
     Provides a spec that includes arrays as the value of examples
     """
     yield _get_parsed_yaml("example_array.yaml")
+
+
+@pytest.fixture
+def empty_contact():
+    """
+    Provides a spec with an empty contact section in info
+    """
+    yield _get_parsed_yaml("empty_contact.yaml")
+
+
+@pytest.fixture
+def with_external_docs():
+    """
+    Provides a spec with externalDocs objects in all valid places
+    """
+    yield _get_parsed_yaml("with-external-docs.yaml")
+
+
+@pytest.fixture
+
+def with_openapi_310_references():
+    """
+    Provides a spec with OpenAPI 3.1.0 expanded Reference Objects
+    """
+    yield _get_parsed_yaml("openapi-3.1.0-refs.yaml")
+
+
+@pytest.fixture
+def with_reference_referencing_reference():
+    """
+    Provides a spec with a reference that references a reference
+    """
+    yield _get_parsed_yaml("reference-reference-reference.yaml")
+
+
+@pytest.fixture
+def with_all_default_types():
+    """
+    Provides a spec with defaults defined in various schemas of all types
+    """
+    yield _get_parsed_yaml("with_all_default_types.yaml")
+
+
+@pytest.fixture
+def with_merge_extension():
+    """
+    Provides a spec that merges extensions from a component ref.
+    """
+    yield _get_parsed_yaml("merge-extension.yaml")
+
+@pytest.fixture
+def with_deeply_nested_allof():
+    """
+    Provides a spec with a $ref under a schema defined in an allOf
+    """
+    yield _get_parsed_yaml("deeply-nested-allOf.yaml")

@@ -56,7 +56,7 @@ class OpenAPI(ObjectBase):
         :param ssl_verify: Decide if to use ssl verification to the requests or not,
                            in case an str is passed, will be used as the CA.
         :type ssl_verify: bool, str, None
-        :param use_session: Should we use a consistant session between API calls
+        :param use_session: Should we use a consistent session between API calls
         :type use_session: bool
         """
         # do this first so super().__init__ can see it
@@ -214,15 +214,18 @@ class OpenAPI(ObjectBase):
         self._operation_map = {}
 
         self.components = self._get("components", ["Components"])
-        self.externalDocs = self._get("externalDocs", dict)
+        self.externalDocs = self._get("externalDocs", "ExternalDocumentation")
         self.info = self._get("info", "Info")
         self.openapi = self._get("openapi", str)
-        self.paths = self._get("paths", ["Path"], is_map=True)
+        self.paths = self._get("paths", ["Path", "Reference"], is_map=True)
         self.security = self._get("security", ["SecurityRequirement"], is_list=True)
         self.servers = self._get("servers", ["Server"], is_list=True)
         self.tags = self._get("tags", ["Tag"], is_list=True)
 
-        # now that we've parsed _all_ the data, resolve all references
+        # now that we've parsed _all_ the data, resolve all references; start with
+        # components so that paths that reference them will see the resolved references
+        if self.components is not None:
+            self.components._resolve_references()
         self._resolve_references()
         self._resolve_allOfs()
 

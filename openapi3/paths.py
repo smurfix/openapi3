@@ -355,6 +355,10 @@ class Operation(ObjectBase):
         return self._request_handle_parameters(base_url=base_url, parameters=parameters, data=data)
 
     def _process_result(self, result):
+        session = self._session
+
+        # send the prepared request
+        result = session.send(self._request.prepare(), verify=verify)
 
         # spec enforces these are strings
         status_code = str(result.status_code)

@@ -101,7 +101,7 @@ async def test_deletePet(event_loop, server, client):
 async def test_getPetUnexpectedResponse(event_loop, server, client):
     """
     Tests that undeclared response codes raise the correct UnexpectedResponseError
-    with the relevant inforamtion included.
+    with the relevant information included.
     """
     async with client:
         with pytest.raises(

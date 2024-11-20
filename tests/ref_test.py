@@ -5,7 +5,9 @@ allOfs are populated as expected as well.
 import pytest
 
 from openapi3 import OpenAPI
+from openapi3.object_base import ReferenceProxy
 from openapi3.schemas import Schema
+from openapi3.general import Reference
 
 
 def test_ref_resolution(petstore_expanded_spec):
@@ -14,7 +16,8 @@ def test_ref_resolution(petstore_expanded_spec):
     """
     ref = petstore_expanded_spec.paths["/pets"].get.responses["default"].content["application/json"].schema
 
-    assert type(ref) == Schema
+    assert type(ref) == ReferenceProxy
+    assert type(ref._proxy) == Schema
     assert ref.type == "object"
     assert len(ref.properties) == 2
     assert "code" in ref.properties
@@ -34,14 +37,14 @@ def test_allOf_resolution(petstore_expanded_spec):
     Tests that allOfs are resolved correctly
     """
     ref = petstore_expanded_spec.paths["/pets"].get.responses["200"].content["application/json"].schema
-    ref = petstore_expanded_spec.paths["/pets"].get.responses["200"].content["application/json"].schema
 
     assert type(ref) == Schema
     assert ref.type == "array"
     assert ref.items is not None
 
     items = ref.items
-    assert type(items) == Schema
+    assert type(items) == ReferenceProxy
+    assert type(items._proxy) == Schema
     assert sorted(items.required) == sorted(["id", "name"])
     assert len(items.properties) == 3
     assert "id" in items.properties
@@ -49,11 +52,9 @@ def test_allOf_resolution(petstore_expanded_spec):
     assert "tag" in items.properties
 
     id_prop = items.properties["id"]
-    id_prop = items.properties["id"]
     assert id_prop.type == "integer"
     assert id_prop.format == "int64"
 
-    name = items.properties["name"]
     name = items.properties["name"]
     assert name.type == "string"
 
@@ -88,7 +89,7 @@ def test_ref_allof_handling(with_ref_allof):
     # paths['/allof-example']get.responses['200'].content['application/json'].schema
     # should not modify the component
     assert len(referenced_schema.properties) == 1, \
-           "Unexpectedly found {} properties on componenets.schemas['Example']: {}".format(
+           "Unexpectedly found {} properties on components.schemas['Example']: {}".format(
                    len(referenced_schema.properties),
                    ", ".join(referenced_schema.properties.keys()),
             )
@@ -115,3 +116,78 @@ def test_ref_6901_refs(rfc_6901):
     # ensure integer path parsing does work as expected
     assert len(path.parameters) == 1
     assert path.parameters[0].name == 'example2'
+
+
+def test_openapi_3_1_0_references(with_openapi_310_references):
+    """
+    Tests that expanded references, as defined in OpenAPI 3.1.0, work as described
+    """
+    # spec parses with expanded reference objects
+    spec = OpenAPI(with_openapi_310_references)
+
+    # the extended reference to Example did nothing
+    example_ref = spec.components.pathItems["example"].get.responses["200"].content["application/json"]
+    assert not hasattr(example_ref, "summary")
+    assert not hasattr(example_ref, "description")
+
+    # the original definition of the example Path is unchanged
+    original_path = spec.components.pathItems["example"]
+    assert original_path.summary == "/example"
+    assert original_path.description == "/example"
+
+    # the plain reference sees the original object's values
+    normal_ref = spec.paths["/example"]
+    assert normal_ref.summary == "/example"
+    assert normal_ref.description == "/example"
+    assert normal_ref == original_path
+    assert normal_ref._proxy == original_path
+    assert isinstance(normal_ref._original_ref, Reference)
+
+    # the extended reference sees the new values
+    extended_ref = spec.paths["/other"]
+    assert extended_ref.summary == "/other"
+    assert extended_ref.description == "/other"
+    assert extended_ref == original_path
+    assert extended_ref._proxy == original_path
+    assert isinstance(extended_ref._original_ref, Reference)
+    assert extended_ref._original_ref != normal_ref._original_ref
+
+
+def test_reference_referencing_reference(with_reference_referencing_reference):
+    spec = OpenAPI(with_reference_referencing_reference)
+
+    assert isinstance(spec.components.schemas["Example"].properties["real"], Schema), "Real property was not a schema?"
+    assert isinstance(spec.components.schemas["Example"].properties["reference"], Schema), "Reference property was not resolved"
+    assert isinstance(spec.paths["/test"].post.requestBody.content["application/json"].schema.properties["example"], Schema), "Reference reference was not resolved"
+
+
+def test_reference_merge_extensions(with_merge_extension):
+    """
+    Tests that a schema with a $ref within the request schema will properly
+    merge extensions.
+    """
+    spec = OpenAPI(with_merge_extension)
+
+    schema = spec.paths["/example"].post.requestBody.content["application/json"].schema
+    assert type(schema.properties["bar"]) == Schema
+    assert schema.properties["bar"].type == "string"
+    assert schema.properties["bar"].extensions["test-extension"] == "test"
+
+def test_resolving_deeply_nested_allof(with_deeply_nested_allof):
+    """
+    Tests that a schema with a $ref nested within a schema defined in an allOf
+    parses correctly
+    """
+    spec = OpenAPI(with_deeply_nested_allof)
+
+    schema = spec.paths['/example'].get.responses['200'].content['application/json'].schema
+
+    assert type(schema.properties['foobar']) == Schema
+    assert schema.properties['foobar'].type == 'array'
+    assert type(schema.properties['foobar'].items) == Schema
+
+    assert "foo" in schema.properties['foobar'].items.properties
+    assert schema.properties['foobar'].items.properties["foo"].type == "integer"
+
+    assert "bar" in schema.properties['foobar'].items.properties
+    assert schema.properties['foobar'].items.properties["bar"].type == "string"
